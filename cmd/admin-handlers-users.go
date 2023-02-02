@@ -19,6 +19,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -1437,6 +1438,139 @@ func (a adminAPIHandlers) RemoveCannedPolicy(w http.ResponseWriter, r *http.Requ
 		Type:      madmin.SRIAMItemPolicy,
 		Name:      policyName,
 		UpdatedAt: UTCNow(),
+	}); err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+}
+
+func addOwnerPolicy(ctx context.Context, w http.ResponseWriter, r *http.Request, bucket string, userName string) {
+	userInfo, err := globalIAMSys.GetUserInfo(ctx, userName)
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+	policyName := userInfo.PolicyName
+	if policyName == "" {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, errors.New("policy name is empty")), r.URL)
+		return
+	}
+
+	policies := newMappedPolicy(policyName).toSlice()
+	if len(policies) != 1 {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, errTooManyPolicies), r.URL)
+		return
+	}
+
+	policyDoc, err := globalIAMSys.InfoPolicy(policyName)
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	iamPolicyBytes, err := json.MarshalIndent(policyDoc.Policy, "", " ")
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	var iamPolicy *iampolicy.Policy
+	if len(iamPolicyBytes) > 0 {
+		iamPolicy, err = iampolicy.ParseConfig(bytes.NewReader(iamPolicyBytes))
+		if err != nil {
+			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+			return
+		}
+		newStatement := iampolicy.Statement{
+			Effect: "Allow",
+			Actions: map[iampolicy.Action]struct{}{
+				"s3:*": {},
+			},
+			Resources: map[iampolicy.Resource]struct{}{
+				iampolicy.Resource{
+					BucketName: bucket,
+					Pattern:    bucket,
+				}: {},
+			},
+		}
+		newStatements := append(iamPolicy.Statements, newStatement)
+		iamPolicy.Statements = newStatements
+	}
+
+	// Version in policy must not be empty
+	if iamPolicy.Version == "" {
+		writeErrorResponseJSON(ctx, w, errorCodes.ToAPIErr(ErrPolicyInvalidVersion), r.URL)
+		return
+	}
+
+	updatedAt, err := globalIAMSys.SetPolicy(ctx, policyName, *iamPolicy)
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	// Call cluster-replication policy creation hook to replicate policy to
+	// other minio clusters.
+	iamPolicyBytes, err = json.MarshalIndent(iamPolicy, "", " ")
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+	if err := globalSiteReplicationSys.IAMChangeHook(ctx, madmin.SRIAMItem{
+		Type:      madmin.SRIAMItemPolicy,
+		Name:      policyName,
+		Policy:    iamPolicyBytes,
+		UpdatedAt: updatedAt,
+	}); err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+	setOwnerPolicy(ctx, w, r, userName, policyName)
+}
+
+func setOwnerPolicy(ctx context.Context, w http.ResponseWriter, r *http.Request, userName string, policyName string) {
+	entityName := userName
+	isGroup := false
+
+	ok, _, err := globalIAMSys.IsTempUser(entityName)
+	if err != nil && err != errNoSuchUser {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+	if ok {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, errIAMActionNotAllowed), r.URL)
+		return
+	}
+
+	// Validate that user exists.
+	if globalIAMSys.GetUsersSysType() == MinIOUsersSysType {
+		_, ok := globalIAMSys.GetUser(ctx, entityName)
+		if !ok {
+			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, errNoSuchUser), r.URL)
+			return
+		}
+	}
+
+	userType := regUser
+	if globalIAMSys.GetUsersSysType() == LDAPUsersSysType {
+		userType = stsUser
+	}
+
+	updatedAt, err := globalIAMSys.PolicyDBSet(ctx, entityName, policyName, userType, isGroup)
+	if err != nil {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
+		return
+	}
+
+	if err := globalSiteReplicationSys.IAMChangeHook(ctx, madmin.SRIAMItem{
+		Type: madmin.SRIAMItemPolicyMapping,
+		PolicyMapping: &madmin.SRPolicyMapping{
+			UserOrGroup: entityName,
+			UserType:    int(userType),
+			IsGroup:     isGroup,
+			Policy:      policyName,
+		},
+		UpdatedAt: updatedAt,
 	}); err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return

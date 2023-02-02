@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -872,6 +873,18 @@ func (api objectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 		UserAgent:    r.UserAgent(),
 		Host:         handlers.GetSourceIP(r),
 	})
+	cred, owner, s3Err := getReqAccessKeyV4(r, "", serviceS3)
+	if s3Err != ErrNone {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, errors.New("GetAccessKey failed")), r.URL)
+		return
+	}
+	if !owner {
+		userName := cred.AccessKey
+		if cred.ParentUser != "" {
+			userName = cred.ParentUser
+		}
+		addOwnerPolicy(ctx, w, r, bucket, userName)
+	}
 }
 
 // PostPolicyBucketHandler - POST policy
