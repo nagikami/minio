@@ -1489,7 +1489,7 @@ func addOwnerPolicy(ctx context.Context, w http.ResponseWriter, r *http.Request,
 			Resources: map[iampolicy.Resource]struct{}{
 				iampolicy.Resource{
 					BucketName: bucket,
-					Pattern:    bucket,
+					Pattern:    bucket + "/*",
 				}: {},
 			},
 		}
