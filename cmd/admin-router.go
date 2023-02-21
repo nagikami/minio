@@ -46,6 +46,7 @@ func registerAdminRouter(router *mux.Router, enableConfigOps bool) {
 		adminAPIVersionPrefix,
 	}
 
+	// gz包装
 	gz, err := gzhttp.NewWrapper(gzhttp.MinSize(1000), gzhttp.CompressionLevel(gzip.BestSpeed))
 	if err != nil {
 		// Static params, so this is very unlikely.

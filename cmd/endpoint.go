@@ -97,6 +97,7 @@ func (endpoint *Endpoint) UpdateIsLocal() (err error) {
 	return nil
 }
 
+// NewEndpoint - 创建endpoint
 // NewEndpoint - returns new endpoint based on given arguments.
 func NewEndpoint(arg string) (ep Endpoint, e error) {
 	// isEmptyPath - check whether given path is not empty.

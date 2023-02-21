@@ -757,6 +757,7 @@ func (client *peerRESTClient) ConsoleLog(logCh chan log.Info, doneCh <-chan stru
 	}()
 }
 
+// newPeerRestClients 创建peer clients，all slice在集群中保持一致的顺序
 // newPeerRestClients creates new peer clients.
 // The two slices will point to the same clients,
 // but 'all' will contain nil entry for local client.
@@ -801,6 +802,7 @@ func newPeerRESTClient(peer *xnet.Host) *peerRESTClient {
 	healthClient.ExpectTimeouts = true
 	healthClient.NoMetrics = true
 
+	// 声明heath检查func
 	// Construct a new health function.
 	restClient.HealthCheckFn = func() bool {
 		ctx, cancel := context.WithTimeout(context.Background(), restClient.HealthCheckTimeout)

@@ -1005,6 +1005,7 @@ func newS2CompressReader(r io.Reader, on int64, encrypted bool) (rc io.ReadClose
 	}
 }
 
+// compressSelfTest 测试数据压缩
 // compressSelfTest performs a self-test to ensure that compression
 // algorithms completes a roundtrip. If any algorithm
 // produces an incorrect checksum it fails with a hard error.
@@ -1032,10 +1033,12 @@ func compressSelfTest() {
 	failOnErr(r.Close())
 	// Decompression reader.
 	s2Reader := s2.NewReader(bytes.NewBuffer(b))
+	// 跳过指定字节数
 	// Apply the skipLen on the decompressed stream.
 	failOnErr(s2Reader.Skip(skip))
 	got, err := io.ReadAll(s2Reader)
 	failOnErr(err)
+	// 比对解压结果和原数据
 	if !bytes.Equal(got, data[skip:]) {
 		logger.Fatal(errSelfTestFailure, "compress: self-test roundtrip mismatch.")
 	}

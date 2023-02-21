@@ -73,6 +73,7 @@ func handleSignals() {
 		return (err == nil && oerr == nil)
 	}
 
+	// 无限循环（阻塞等待接收任一case的通知）
 	for {
 		select {
 		case err := <-globalHTTPServerErrorCh:

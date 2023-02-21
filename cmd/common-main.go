@@ -744,6 +744,7 @@ func handleCommonEnvVars() {
 		}
 	}
 
+	// 已解析完所有环境变量，初始化全局凭证cred
 	// At this point, either both environment variables
 	// are defined or both are not defined.
 	// Check both cases and authenticate them if correctly defined

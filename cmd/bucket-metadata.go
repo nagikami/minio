@@ -59,13 +59,14 @@ var (
 	enabledBucketVersioningConfig = []byte(`<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>`)
 )
 
-//go:generate msgp -file $GOFILE
-
+// BucketMetadata 桶元数据
 // BucketMetadata contains bucket metadata.
 // When adding/removing fields, regenerate the marshal code using the go generate above.
 // Only changing meaning of fields requires a version bump.
 // bucketMetadataFormat refers to the format.
 // bucketMetadataVersion can be used to track a rolling upgrade of a field.
+//
+//go:generate msgp -file $GOFILE
 type BucketMetadata struct {
 	Name                        string
 	Created                     time.Time

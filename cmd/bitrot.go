@@ -222,6 +222,7 @@ func bitrotSelfTest() {
 		HighwayHash256:  "39c0407ed3f01b18d22c85db4aeff11e060ca5f43131b0126731ca197cd42313",
 		HighwayHash256S: "39c0407ed3f01b18d22c85db4aeff11e060ca5f43131b0126731ca197cd42313",
 	}
+	// 使用多hash算法验证硬盘是否有bit损坏
 	for algorithm := range bitrotAlgorithms {
 		if !algorithm.Available() {
 			continue
@@ -236,12 +237,14 @@ func bitrotSelfTest() {
 			msg  = make([]byte, 0, hash.Size()*hash.BlockSize())
 			sum  = make([]byte, 0, hash.Size())
 		)
+		// 计算hash
 		for i := 0; i < hash.Size()*hash.BlockSize(); i += hash.Size() {
 			hash.Write(msg)
 			sum = hash.Sum(sum[:0])
 			msg = append(msg, sum...)
 			hash.Reset()
 		}
+		// 判断hash结果是否与期望的相同
 		if !bytes.Equal(sum, checksum) {
 			logger.Fatal(errSelfTestFailure, fmt.Sprintf("bitrot: %v selftest checksum mismatch: got %x - want %x", algorithm, sum, checksum))
 		}

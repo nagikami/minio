@@ -107,6 +107,7 @@ func newHealState(ctx context.Context, cleanup bool) *allHealState {
 		healStatus:     make(map[string]healingTracker),
 	}
 	if cleanup {
+		// 定时清理全局状态中完成的恢复序列（5min）
 		go hstate.periodicHealSeqsClean(ctx)
 	}
 	return hstate

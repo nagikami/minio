@@ -50,6 +50,7 @@ import (
 	"github.com/minio/pkg/env"
 )
 
+// ServerFlags - server 命令参数数组
 // ServerFlags - server command specific flags
 var ServerFlags = []cli.Flag{
 	cli.StringFlag{
@@ -107,6 +108,7 @@ var ServerFlags = []cli.Flag{
 	},
 }
 
+// 网关命令，预定移除
 var gatewayCmd = cli.Command{
 	Name:            "gateway",
 	Usage:           "start object storage gateway",
@@ -121,6 +123,7 @@ func gatewayMain(ctx *cli.Context) error {
 	return nil
 }
 
+// 声明并初始化server命令
 var serverCmd = cli.Command{
 	Name:   "server",
 	Usage:  "start object storage server",
@@ -243,12 +246,14 @@ func serverHandleCmdArgs(ctx *cli.Context) {
 		ClientSessionCache: tls.NewLRUClientSessionCache(tlsClientSessionCacheSize),
 	}, rest.DefaultTimeout)()
 	globalProxyEndpoints = GetProxyEndpoints(globalEndpoints)
+	// 初始化peer通信HTTP配置
 	globalInternodeTransport = newInternodeHTTPTransport(&tls.Config{
 		RootCAs:            globalRootCAs,
 		CipherSuites:       fips.TLSCiphers(),
 		CurvePreferences:   fips.TLSCurveIDs(),
 		ClientSessionCache: tls.NewLRUClientSessionCache(tlsClientSessionCacheSize),
 	}, rest.DefaultTimeout)()
+	// 初始化replication通信HTTP配置
 	globalRemoteTargetTransport = NewRemoteTargetHTTPTransport()()
 
 	// On macOS, if a process already listens on LOCALIPADDR:PORT, net.Listen() falls back
@@ -282,9 +287,11 @@ func initAllSubsystems(ctx context.Context) {
 	globalBackgroundHealState = newHealState(ctx, false)
 	globalHealStateLK.Unlock()
 
+	// 初始化peer rest client列表
 	// Initialize notification peer targets
 	globalNotificationSys = NewNotificationSys(globalEndpoints)
 
+	// 初始化时间通知器
 	// Create new notification system
 	globalEventNotifier = NewEventNotifier()
 
@@ -328,9 +335,11 @@ func initAllSubsystems(ctx context.Context) {
 	// Create new bucket replication subsytem
 	globalBucketTargetSys = NewBucketTargetSys(GlobalContext)
 
+	// 初始化分层配置对象
 	// Create new ILM tier configuration subsystem
 	globalTierConfigMgr = NewTierConfigMgr()
 
+	// 初始化site副本同步指标对象
 	globalSiteResyncMetrics = newSiteResyncMetrics(GlobalContext)
 }
 
@@ -471,10 +480,13 @@ func getServerListenAddrs() []string {
 	return addrs.ToSlice()
 }
 
+// minio server命令对应的handler
 // serverMain handler called for 'minio server' command.
 func serverMain(ctx *cli.Context) {
+	// 指定通知到信道的信号类型（相当于signal为channel加了层filter）
 	signal.Notify(globalOSSignalCh, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
 
+	// 服务状态管理线程，接收并处理服务信号
 	go handleSignals()
 
 	setDefaultProfilerRates()
@@ -483,6 +495,7 @@ func serverMain(ctx *cli.Context) {
 	globalConsoleSys = NewConsoleLogger(GlobalContext)
 	logger.AddSystemTarget(globalConsoleSys)
 
+	// 环境预检
 	// Perform any self-tests
 	bitrotSelfTest()
 	erasureSelfTest()
@@ -500,6 +513,7 @@ func serverMain(ctx *cli.Context) {
 	// Set node name, only set for distributed setup.
 	globalConsoleSys.SetNodeName(globalLocalNodeName)
 
+	// 初始化子系统描述map
 	// Initialize all help
 	initHelp()
 
@@ -542,6 +556,7 @@ func serverMain(ctx *cli.Context) {
 		logger.Info(color.RedBold("WARNING: Detected GOMAXPROCS(%d) < NumCPU(%d), please make sure to provide all PROCS to MinIO for optimal performance", maxProcs, cpuProcs))
 	}
 
+	// 配置HTTP server
 	// Configure server.
 	handler, err := configureServerHandler(globalEndpoints)
 	if err != nil {
@@ -583,6 +598,7 @@ func serverMain(ctx *cli.Context) {
 	xhttp.SetDeploymentID(globalDeploymentID)
 	xhttp.SetMinIOVersion(Version)
 
+	// 对MinIO meta bucket加锁（.minio.sys）
 	globalLeaderLock = newSharedLock(GlobalContext, newObject, "leader.lock")
 
 	// Enable background operations for erasure coding

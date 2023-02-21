@@ -334,6 +334,7 @@ const (
 
 var globalCustomErasureDriveCount = false
 
+// createServerEndpoints - 创建endpoints（路径/硬盘），支持省略号
 // CreateServerEndpoints - validates and creates new endpoints from input args, supports
 // both ellipses and without ellipses transparently.
 func createServerEndpoints(serverAddr string, args ...string) (

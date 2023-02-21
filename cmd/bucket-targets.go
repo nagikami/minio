@@ -359,6 +359,7 @@ func NewBucketTargetSys(ctx context.Context) *BucketTargetSys {
 		hc:            make(map[string]epHealth),
 		hcClient:      newHCClient(),
 	}
+	// 定时更新健康检查peer列表
 	// reload healthcheck endpoints map periodically to remove stale endpoints from the map.
 	go func() {
 		rTimer := time.NewTimer(defaultHealthCheckReloadDuration)

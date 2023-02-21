@@ -35,6 +35,7 @@ import (
 	"github.com/minio/pkg/words"
 )
 
+// GlobalFlags - minio全局参数
 // GlobalFlags - global flags for minio.
 var GlobalFlags = []cli.Flag{
 	// Deprecated flag, so its hidden now - existing deployments will keep working.
@@ -95,6 +96,7 @@ VERSION:
   {{.Version}}
 `
 
+// 初始化App
 func newApp(name string) *cli.App {
 	// Collection of minio commands currently supported are.
 	commands := []cli.Command{}
@@ -108,6 +110,7 @@ func newApp(name string) *cli.App {
 		commandsTree.Insert(command.Name)
 	}
 
+	// 查找最可能的命令
 	findClosestCommands := func(command string) []string {
 		var closestCommands []string
 		closestCommands = append(closestCommands, commandsTree.PrefixMatch(command)...)
@@ -119,6 +122,7 @@ func newApp(name string) *cli.App {
 			if sort.SearchStrings(closestCommands, value) < len(closestCommands) {
 				continue
 			}
+			// 计算编辑距离（使用动态规划）
 			// 2 is arbitrary and represents the max
 			// allowed number of typed errors
 			if words.DamerauLevenshteinDistance(command, value) < 2 {
@@ -173,6 +177,7 @@ func startupBanner(banner io.Writer) {
 	fmt.Fprintln(banner, color.Blue("Version:")+color.Bold(" %s (%s %s/%s)", ReleaseTag, runtime.Version(), runtime.GOOS, runtime.GOARCH))
 }
 
+// 构建版本标志输出，返回reader
 func versionBanner(c *cli.Context) io.Reader {
 	banner := &strings.Builder{}
 	fmt.Fprintln(banner, color.Bold("%s version %s (commit-id=%s)", c.App.Name, c.App.Version, CommitID))
@@ -182,6 +187,7 @@ func versionBanner(c *cli.Context) io.Reader {
 	return strings.NewReader(banner.String())
 }
 
+// 将版本标志reader复制到App writer
 func printMinIOVersion(c *cli.Context) {
 	io.Copy(c.App.Writer, versionBanner(c))
 }
@@ -189,8 +195,10 @@ func printMinIOVersion(c *cli.Context) {
 // Main main for minio server.
 func Main(args []string) {
 	// Set the minio app name.
+	//获取编译后可执行文件名称（默认为module名称，IDE运行时文件保存在临时工作路径）
 	appName := filepath.Base(args[0])
 
+	// 开启DEBUG模式，Main结束时无限阻塞不退出
 	if os.Getenv("_MINIO_DEBUG_NO_EXIT") != "" {
 		freeze := func(_ int) {
 			// Infinite blocking op

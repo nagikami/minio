@@ -809,6 +809,7 @@ func jsonSave(f interface {
 	return nil
 }
 
+// ceilFrac 两数之商的向上取整值
 // ceilFrac takes a numerator and denominator representing a fraction
 // and returns its ceiling. If denominator is 0, it returns 0 instead
 // of crashing.

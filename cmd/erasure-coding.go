@@ -38,6 +38,7 @@ type Erasure struct {
 	blockSize                int64
 }
 
+// NewErasure 创建纠删码存储
 // NewErasure creates a new ErasureStorage.
 func NewErasure(ctx context.Context, dataBlocks, parityBlocks int, blockSize int64) (e Erasure, err error) {
 	// Check the parameters for sanity now.
@@ -72,17 +73,20 @@ func NewErasure(ctx context.Context, dataBlocks, parityBlocks int, blockSize int
 	return
 }
 
+// EncodeData 计算纠删码（二维数组）
 // EncodeData encodes the given data and returns the erasure-coded data.
 // It returns an error if the erasure coding failed.
 func (e *Erasure) EncodeData(ctx context.Context, data []byte) ([][]byte, error) {
 	if len(data) == 0 {
 		return make([][]byte, e.dataBlocks+e.parityBlocks), nil
 	}
+	// 将data切分为shards
 	encoded, err := e.encoder().Split(data)
 	if err != nil {
 		logger.LogIf(ctx, err)
 		return nil, err
 	}
+	// 计算纠删码
 	if err = e.encoder().Encode(encoded); err != nil {
 		logger.LogIf(ctx, err)
 		return nil, err
@@ -118,6 +122,7 @@ func (e *Erasure) DecodeDataAndParityBlocks(ctx context.Context, data [][]byte) 
 	return nil
 }
 
+// ShardSize - 返回shard大小（ceil(blockSize / dataBlocks)）
 // ShardSize - returns actual shared size from erasure blockSize.
 func (e *Erasure) ShardSize() int64 {
 	return ceilFrac(e.blockSize, int64(e.dataBlocks))
@@ -198,6 +203,7 @@ func erasureSelfTest() {
 				ok = false
 				continue
 			}
+			// 测试删除一个shard是否能够恢复
 			// Delete first shard and reconstruct...
 			first := encoded[0]
 			encoded[0] = nil
