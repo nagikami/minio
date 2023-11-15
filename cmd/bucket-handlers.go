@@ -884,6 +884,19 @@ func (api objectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 		UserAgent:    r.UserAgent(),
 		Host:         handlers.GetSourceIP(r),
 	})
+
+	cred, owner, s3Err := getReqAccessKeyV4(r, "", serviceS3)
+	if s3Err != ErrNone {
+		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, errors.New("GetAccessKey failed")), r.URL)
+		return
+	}
+	if !owner {
+		userName := cred.AccessKey
+		if cred.ParentUser != "" {
+			userName = cred.ParentUser
+		}
+		addOwnerPolicy(ctx, w, r, bucket, userName)
+	}
 }
 
 // PostPolicyBucketHandler - POST policy
@@ -1546,7 +1559,7 @@ func (api objectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if s3Error := checkRequestAuthType(ctx, r, policy.ListBucketAction, bucket, ""); s3Error != ErrNone {
+	if s3Error := checkRequestAuthType(ctx, r, policy.HeadBucketAction, bucket, ""); s3Error != ErrNone {
 		writeErrorResponseHeadersOnly(w, errorCodes.ToAPIErr(s3Error))
 		return
 	}
